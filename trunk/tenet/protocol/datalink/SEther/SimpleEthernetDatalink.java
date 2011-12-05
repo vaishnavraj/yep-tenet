@@ -288,11 +288,11 @@ public class SimpleEthernetDatalink extends InterruptObject implements
 		resetInterrupt(Link.INT_LINK_DOWN);
 		for (Object i : m_transmit_client.toArray())
 			this.delayInterrupt(INT_SEND_LINKDOWN, new FrameParamStruct(
-					MediumAddress.ZERO_MA, MediumAddress.ZERO_MA, (Integer) i,
+					MediumAddress.MAC_ALLONE, MediumAddress.MAC_ALLONE, (Integer) i,
 					new byte[0]), m_delay);
 		for (Object i : m_receive_client.toArray())
 			this.delayInterrupt(INT_RECEIVE_LINKDOWN, new FrameParamStruct(
-					MediumAddress.ZERO_MA, MediumAddress.ZERO_MA, (Integer) i,
+					MediumAddress.MAC_ALLONE, MediumAddress.MAC_ALLONE, (Integer) i,
 					new byte[0]), m_delay);
 		for (IClient<Integer> netl : m_network_layers.values())
 			if (netl instanceof InterruptObject)
@@ -345,7 +345,7 @@ public class SimpleEthernetDatalink extends InterruptObject implements
 
 	protected void onReadOK(FrameParamStruct param) {
 		if(param.destinationParam==null||(!param.destinationParam.equals(this.m_mac)
-				&&(!param.destinationParam.equals(MediumAddress.ZERO_MA)))) return;
+				&&(!param.destinationParam.equals(MediumAddress.MAC_ALLONE)))) return;
 		if (!m_receive_client.contains(param.typeParam))
 			return;
 		resetReceiveInterrupts(param.typeParam);

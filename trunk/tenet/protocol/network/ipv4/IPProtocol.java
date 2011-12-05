@@ -28,7 +28,7 @@ public interface IPProtocol extends IStateSetable, INetworkLayer, IRegistryableS
 	public static final int recPacketSignal = 1;	
 
 	
-	/*
+	/**
 	*	   Interface for high level protocols(e.g. TCP) to send packets:
 	*      @canSend:   High level protocols need to call 'canSend' every time
 	*                  before calling sendPacket except when you are dealing with 
@@ -43,7 +43,7 @@ public interface IPProtocol extends IStateSetable, INetworkLayer, IRegistryableS
 			Integer clientProtocolId);
 			
 
-	/*
+	/**
 	*      Almost the same as above functions , except that they assign 
 	*       which link to send the packets , so dynamic routing can use these 
 	*	   function.

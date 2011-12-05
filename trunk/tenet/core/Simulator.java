@@ -3,9 +3,10 @@ package tenet.core;
 import java.util.ArrayList;
 import java.util.PriorityQueue;
 
+import org.knf.tenet.result.ResultManager;
+
 import tenet.anticheat.ICallWatcher;
 import tenet.node.INode;
-import tenet.protocol.interrupt.InterruptObject;
 import tenet.util.pattern.IParam;
 import tenet.util.pattern.cbc.Command;
 import tenet.util.pattern.cbc.IInvoker;
@@ -84,15 +85,14 @@ public class Simulator implements IInvoker, IReceiver {
 			Command cmd = this.m_cmdQueue.poll();
 			m_time = cmd.getExecuteTime();
 			/*
-			System.out.print(m_time+" "+cmd.getName());
-			if (cmd instanceof InterruptObject.DelayInterrupt)
-				System.out.println("->"+cmd.getReceiver().getClass().getName()+((InterruptObject.DelayInterrupt)cmd).m_signal);
-			else System.out.println();
+			System.out.println(m_time+" "+cmd.getName());
 			*/
 			IParam result = cmd._execute();
 			assert result instanceof SystemPause : "System Pause";
-			if (cmd instanceof SystemStop)
+			if (cmd instanceof SystemStop){
+				ResultManager.getInstance().dump();
 				break;
+			}
 		}
 	}
 

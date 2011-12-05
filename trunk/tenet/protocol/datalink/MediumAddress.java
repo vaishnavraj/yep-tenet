@@ -13,9 +13,14 @@ import tenet.util.ByteLib;
  */
 public class MediumAddress extends InterruptParam {
 	/**
-	 * 0 MAC。广播MAC地址，也可作为MAC地址未知的含义。
+	 * 广播MAC地址.
 	 */
-	public static final MediumAddress ZERO_MA = new MediumAddress(
+	public static final MediumAddress MAC_ALLONE = new MediumAddress(
+			"FF:FF:FF:FF:FF:FF");
+	/**
+	 * 0 MAC.可作为MAC地址未知的含义。
+	 */
+	public static final MediumAddress MAC_ZERO = new MediumAddress(
 			"00:00:00:00:00:00");
 
 	/**

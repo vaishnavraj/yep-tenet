@@ -28,10 +28,10 @@ import tenet.util.pattern.cbc.IReceiver;
  */
 public abstract class InterruptObject implements ICaller, IReceiver {
 
-	public class DelayInterrupt extends Command {
+	protected class DelayInterrupt extends Command {
 
 		InterruptParam m_param;
-		public int m_signal;
+		int m_signal;
 
 		protected DelayInterrupt(double m_time, IReceiver m_recv, int signal,
 				InterruptParam param) {
