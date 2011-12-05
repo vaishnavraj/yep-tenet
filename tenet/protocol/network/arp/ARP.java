@@ -45,7 +45,6 @@ public class ARP extends InterruptObject implements INetworkLayer,
 
 		@Override
 		public IParam execute() {
-			// TODO Auto-generated method stub
 			m_obj.wait(IDataLinkLayer.INT_FRAME_TRANSMIT, Double.NaN);
 			((IDataLinkLayer) m_recv).transmitFrame(m_frame);
 			return null;
@@ -66,7 +65,6 @@ public class ARP extends InterruptObject implements INetworkLayer,
 
 		@Override
 		public IParam execute() {
-			// TODO Auto-generated method stub
 			m_obj.wait(IDataLinkLayer.INT_FRAME_RECEIVE, Double.NaN);
 			((IDataLinkLayer) m_recv).receiveFrame(m_frame);
 			return null;
@@ -89,7 +87,7 @@ public class ARP extends InterruptObject implements INetworkLayer,
 	public ARP() {
 		//The initialization
 		ArpTable = new TreeMap<Integer,MediumAddress>();
-		this.wait(IDataLinkLayer.INT_FRAME_RECEIVE, Double.NaN);
+		//this.wait(IDataLinkLayer.INT_FRAME_RECEIVE, Double.NaN);
 	}
 	
 
@@ -100,12 +98,12 @@ public class ARP extends InterruptObject implements INetworkLayer,
 		//Some different PTYPE will appear in the verification
 		MediumAddress desMac = MediumAddress.fromBytes(hardwareAddr);	
 		ArpFrame arpframe = new ArpFrame();
-		arpframe.send(desMac, protocolAddr, datalink.getUniqueID(), m_node.getAddress(m_network_layers) );
+		arpframe.send(PTYPE, desMac, protocolAddr, datalink.getUniqueID(), m_node.getAddress(m_network_layers) );
 		FrameParamStruct frame = new FrameParamStruct(BROADCAST_MA, datalink.getUniqueID(), this.getUniqueID(), arpframe.toByte());
 		Simulator.Schedule(new Send(Simulator.GetTime(),(IReceiver) this.datalink,frame,this));
 	}
 	
-	public static final MediumAddress BROADCAST_MA = MediumAddress.ZERO_MA;//new MediumAddress("FF:FF:FF:FF:FF:FF");
+	public static final MediumAddress BROADCAST_MA = MediumAddress.MAC_ALLONE;//new MediumAddress("FF:FF:FF:FF:FF:FF");
 	
 	
 	public byte[] getHardwareAddress(int PTYPE, byte[] protocolAddr) {
@@ -117,13 +115,10 @@ public class ARP extends InterruptObject implements INetworkLayer,
 			ArpFrame arpframe = new ArpFrame();
 			//System.out.println(protocolAddr);
 			//System.out.println(m_network_layers);
-			arpframe.request(protocolAddr,datalink.getUniqueID(),m_node.getAddress(m_network_layers));
+			arpframe.request(PTYPE, protocolAddr,datalink.getUniqueID(),m_node.getAddress(m_network_layers));
 			FrameParamStruct frame = new FrameParamStruct(BROADCAST_MA, datalink.getUniqueID(), this.getUniqueID(), arpframe.toByte());
-			Simulator.Schedule(new Send(Simulator.GetTime()+m_delay,(IReceiver) this.datalink,frame,this));
-			//receive
-			frame=new FrameParamStruct(MediumAddress.ZERO_MA, this.datalink.getUniqueID(), this.getUniqueID(), new byte[0]);
-			this.wait(IDataLinkLayer.INT_FRAME_RECEIVE, Double.NaN);
-			this.datalink.receiveFrame(frame);
+			Simulator.Schedule(new Send(Simulator.GetTime(),(IReceiver) this.datalink,frame,this));
+			
 			return null;
 		}
 
@@ -136,33 +131,85 @@ public class ARP extends InterruptObject implements INetworkLayer,
 		// IDataLinkLayer.INT_FRAME_RECEIVE & IDataLinkLayer.INT_FRAME_TRANSMIT are the important signals. 
 		switch (signal) {
 		case IDataLinkLayer.INT_FRAME_RECEIVE:
+			//System.out.println("got "+((ReceiveParam)param).status);
 			if (((ReceiveParam)param).status == ReceiveStatus.receiveOK){
 				FrameParamStruct frame = ((ReceiveParam)param).frame;
 				if (frame.typeParam == this.getUniqueID()){
+					//System.out.println(frame.dataParam.length);
 					ArpFrame arpframe = new ArpFrame(frame.dataParam);
-					if (arpframe.OPER[1]==0x01){
-						//send the arpframe
-						send(ByteLib.bytesToInt(arpframe.HTYPE,0), arpframe.SenderHardwareAddress.toBytes(), ByteLib.bytesToInt(arpframe.PTYPE,0), arpframe.SenderProtocolAddress);
+					//System.out.println("got arp "+arpframe.SenderHardwareAddress+" "+arpframe.TargetProtocolAddress.length+" "+m_node.getAddress(m_network_layers).length);
+					if (arpframe.SenderHardwareAddress.equals(datalink.getUniqueID()) && !issame(arpframe.SenderProtocolAddress, m_node.getAddress(m_network_layers))){
+						// mac collision
+						if (m_network_layers instanceof InterruptObject){
+							((InterruptObject)m_network_layers).delayInterrupt(0xE0000500, null, 0.0);
+						}
 					}
+					if (ArpTable.containsKey(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0))){
+						ArpTable.put(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0), arpframe.SenderHardwareAddress);
+					}
+					if (issame(arpframe.TargetProtocolAddress,m_node.getAddress(m_network_layers))){
+						ArpTable.put(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0), arpframe.SenderHardwareAddress);
+						if (arpframe.OPER[1]==0x01){
+						//send the arpframe
+						//System.out.println("send arp");
+						send(ByteLib.bytesToInt(arpframe.HTYPE,0), arpframe.SenderHardwareAddress.toBytes(), ByteLib.bytesToInt(arpframe.PTYPE,0), arpframe.SenderProtocolAddress);
+						}
+					}
+					/*
 					if (arpframe.OPER[1]==0x02){
 						//do with the collision and update the arp table 
 						if (ArpTable.containsKey(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0))){
 							//TODO may cause mac collision
+							
+							if (m_network_layers instanceof InterruptObject){
+								((InterruptObject)m_network_layers).delayInterrupt(0xE0000500, null, 0.0);
+							}
+							
 						}else{
 							ArpTable.put(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0), arpframe.SenderHardwareAddress);
 						}
 					}
+					*/
 				}
 			}
+			//receive
+			FrameParamStruct frame=new FrameParamStruct(MediumAddress.MAC_ZERO, this.datalink.getUniqueID(), this.getUniqueID(), new byte[0]);
+			this.wait(IDataLinkLayer.INT_FRAME_RECEIVE, Double.NaN);
+			this.datalink.receiveFrame(frame);
 			break;
 		case IDataLinkLayer.INT_FRAME_TRANSMIT:
+			IDataLinkLayer.TransmitStatus tstatus = ((IDataLinkLayer.TransmitParam) param).status;
+			switch (tstatus) {
+			case transmitCollision:
+				m_send_link
+						.addLast(((IDataLinkLayer.TransmitParam) param).frame);
+				wait(IDataLinkLayer.INT_FRAME_TRANSMIT_READY, Double.NaN);
+				break;
+			}
+			break;
+		case IDataLinkLayer.INT_FRAME_TRANSMIT_READY:
+			if(!this.m_send_link.isEmpty())
+			Simulator.getInstance().schedule(
+					new Send(Simulator.getInstance().getTime(),
+							(IReceiver) this.datalink, this.m_send_link
+									.pollFirst(), this));
 			break;
 		}
 	}
 
+	private boolean issame(byte[] a, byte[] b){
+		if (a==null || b==null ||(a.length!=b.length)) return false;
+		int length = a.length;
+		for (int i=0;i<length;i++){
+			//System.out.print(a[i]+" "+b[i]+":");
+			if (a[i]!=b[i]) return false;
+		}
+		//System.out.println();
+		return true;
+	}
 	@Override
 	public void dump() {
-		// TODO This is used for the debugging. You may use it to export something iteratively.	
+		// This is used for the debugging. You may use it to export something iteratively.	
 
 	}
 
@@ -204,6 +251,10 @@ public class ARP extends InterruptObject implements INetworkLayer,
 		if (service instanceof SimpleEthernetDatalink){
 			datalink = (SimpleEthernetDatalink)service;
 			wait(IDataLinkLayer.INT_INTERFACE_UP, Double.NaN);
+			//receive
+			FrameParamStruct frame=new FrameParamStruct(MediumAddress.MAC_ZERO, this.datalink.getUniqueID(), this.getUniqueID(), new byte[0]);
+			this.wait(IDataLinkLayer.INT_FRAME_RECEIVE, Double.NaN);
+			this.datalink.receiveFrame(frame);
 		}
 		if (service instanceof INode)
 			m_node = (INode) service;
@@ -219,13 +270,13 @@ public class ARP extends InterruptObject implements INetworkLayer,
 	
 	@Override
 	public Integer getUniqueID() {
-		// TODO return the Protocol ID.
+		// return the Protocol ID.
 		return UniqueID;
 	}
 
 	@Override
 	public void setUniqueID(Integer id) {
-		// TODO Set the Protocol ID.
+		// Set the Protocol ID.
 		UniqueID = id;
 	}
 
@@ -258,36 +309,36 @@ class ArpFrame {
 	
 	public ArpFrame(){
 		HLEN = 6;
-		PLEN = 4;
 		HTYPE = new byte[2];
 		PTYPE = new byte[2];
 		OPER = new byte[2];
 		HTYPE[0] = 0x00;
 		HTYPE[1] = 0x01;
-		PTYPE[0] = 0x08;
-		PTYPE[1] = 0x00;
 	}
 	
 	public ArpFrame(byte[] framedata){
 		HLEN = 6;
-		PLEN = 4;
+		PLEN = framedata[5];
 		HTYPE = new byte[2];
 		PTYPE = new byte[2];
+		OPER = new byte[2];
 		HTYPE[0] = 0x00;
 		HTYPE[1] = 0x01;
-		PTYPE[0] = 0x08;
-		PTYPE[1] = 0x00;
-		TargetHardwareAddress = MediumAddress.fromBytes(Arrays.copyOfRange(framedata, 8, 14));
-		TargetProtocolAddress = Arrays.copyOfRange(framedata, 14, 18);
-		SenderHardwareAddress = MediumAddress.fromBytes(Arrays.copyOfRange(framedata, 18, 24));
-		SenderProtocolAddress = Arrays.copyOfRange(framedata, 24, 28);
+		PTYPE = Arrays.copyOfRange(framedata, 2, 4);
+		SenderHardwareAddress = MediumAddress.fromBytes(Arrays.copyOfRange(framedata, 8, 14));
+		SenderProtocolAddress = Arrays.copyOfRange(framedata, 14, 14+PLEN);
+		TargetHardwareAddress = MediumAddress.fromBytes(Arrays.copyOfRange(framedata, 18, 24));
+		TargetProtocolAddress = Arrays.copyOfRange(framedata, 24, 24+PLEN);
 		OPER[0]=framedata[6];
 		OPER[1]=framedata[7];
 	}
 	
-	public void request(byte[] targetIP , MediumAddress senderMac , byte[] senderIP){
+	public void request(int ptype, byte[] targetIP , MediumAddress senderMac , byte[] senderIP){
+		PLEN = (byte)senderIP.length;
+		PTYPE[1] = (byte)(ptype%256);
+		PTYPE[0] = (byte)(ptype/256);
 		TargetProtocolAddress = targetIP;
-		TargetHardwareAddress = MediumAddress.ZERO_MA;
+		TargetHardwareAddress = MediumAddress.MAC_ZERO;
 		SenderHardwareAddress = senderMac;
 		SenderProtocolAddress = senderIP;
 		//System.out.println(senderIP);
@@ -295,7 +346,10 @@ class ArpFrame {
 		OPER[1]=0x01;
 	}
 	
-	public void send(MediumAddress targetMac, byte[] targetIP, MediumAddress senderMac, byte[] senderIP ){
+	public void send(int ptype, MediumAddress targetMac, byte[] targetIP, MediumAddress senderMac, byte[] senderIP ){
+		PLEN = (byte)senderIP.length;
+		PTYPE[1] = (byte)(ptype%256);
+		PTYPE[0] = (byte)(ptype/256);
 		TargetProtocolAddress = targetIP;
 		TargetHardwareAddress = targetMac;
 		SenderHardwareAddress = senderMac;
@@ -315,9 +369,9 @@ class ArpFrame {
 		ret[6]=OPER[0];
 		ret[7]=OPER[1];
 		System.arraycopy(SenderHardwareAddress.toBytes(), 0, ret, 8, 6);
-		System.arraycopy(SenderProtocolAddress, 0, ret, 14, SenderProtocolAddress.length);
+		System.arraycopy(SenderProtocolAddress, 0, ret, 14, PLEN);
 		System.arraycopy(TargetHardwareAddress.toBytes(), 0, ret, 18, 6);
-		System.arraycopy(TargetProtocolAddress, 0, ret, 24, TargetProtocolAddress.length);
+		System.arraycopy(TargetProtocolAddress, 0, ret, 24, PLEN);
 		return ret;
 	}
 	

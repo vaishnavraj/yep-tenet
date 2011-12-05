@@ -79,7 +79,7 @@ public class StoreForwardingDatalink extends SimpleEthernetDatalink {
 		//resetReceiveInterrupts(param.typeParam);
 	}
 	
-	public static final MediumAddress BROADCAST_MA = MediumAddress.ZERO_MA;//new MediumAddress("FF:FF:FF:FF:FF:FF");
+	public static final MediumAddress BROADCAST_MA = MediumAddress.MAC_ALLONE;//new MediumAddress("FF:FF:FF:FF:FF:FF");
 	private boolean isBroadcast(MediumAddress mac){
 		if (mac.toString().equals(BROADCAST_MA.toString())) return true;
 		return false;
@@ -98,10 +98,11 @@ public class StoreForwardingDatalink extends SimpleEthernetDatalink {
 				((StoreForwardingDatalink)des).m_send_queue.add(param);
 				((StoreForwardingDatalink)des).sendnext();
 			}else
-				for (SimpleEthernetDatalink DataLink: Switch.m_datalinks.values()){
-					((StoreForwardingDatalink)DataLink).m_send_queue.add(param);
-					((StoreForwardingDatalink)DataLink).sendnext();
-				}
+				for (SimpleEthernetDatalink DataLink: Switch.m_datalinks.values())
+					if (DataLink != this){
+						((StoreForwardingDatalink)DataLink).m_send_queue.add(param);
+						((StoreForwardingDatalink)DataLink).sendnext();
+					}
 		}
 	}
 
