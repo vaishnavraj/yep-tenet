@@ -52,7 +52,8 @@ public interface IPProtocol extends IStateSetable, INetworkLayer, IRegistryableS
 	public void sendPacket(byte[] data, Integer srcIPAddr, int linkNumber,
 			Integer clientProtocolId);
 
-	/* 	   For dynamic routing:
+	/**
+	*  	   For dynamic routing:
 	*      return the total number of links attached to this node
 	*/   
 	public int totalLink();	

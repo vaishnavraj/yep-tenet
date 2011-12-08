@@ -4,9 +4,6 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.TreeMap;
 
-import org.knf.tenet.test.util.TestNetworkLayer;
-import org.knf.tenet.test.util.TestNetworkLayer.Send;
-
 import tenet.core.Simulator;
 import tenet.node.INode;
 import tenet.protocol.datalink.IDataLinkLayer;
@@ -130,6 +127,25 @@ public class ARP extends InterruptObject implements INetworkLayer,
 		// Ths signals may be caused by the IDataLinkLayer and yourself.
 		// IDataLinkLayer.INT_FRAME_RECEIVE & IDataLinkLayer.INT_FRAME_TRANSMIT are the important signals. 
 		switch (signal) {
+		case IDataLinkLayer.INT_INTERFACE_UP:
+			wait(IDataLinkLayer.INT_INTERFACE_DOWN, Double.NaN);
+			this.resetInterrupt(IDataLinkLayer.INT_INTERFACE_UP);
+			Receive();
+			if (m_network_layers != null){
+				//System.out.println("broadcast");
+				ArpFrame arpframe = new ArpFrame();
+				arpframe.request(m_network_layers.getUniqueID(), m_node.getAddress(m_network_layers),datalink.getUniqueID(),m_node.getAddress(m_network_layers));
+				FrameParamStruct frame = new FrameParamStruct(BROADCAST_MA, datalink.getUniqueID(), this.getUniqueID(), arpframe.toByte());
+				Simulator.Schedule(new Send(Simulator.GetTime(),(IReceiver) this.datalink,frame,this));
+			}
+			break;
+		case IDataLinkLayer.INT_INTERFACE_DOWN:
+			wait(IDataLinkLayer.INT_INTERFACE_UP, Double.NaN);
+			this.resetInterrupt(IDataLinkLayer.INT_INTERFACE_DOWN);
+			this.resetInterrupt(IDataLinkLayer.INT_FRAME_RECEIVE);
+			//m_receive_link.clear();
+			//m_send_link.clear();
+			break;
 		case IDataLinkLayer.INT_FRAME_RECEIVE:
 			//System.out.println("got "+((ReceiveParam)param).status);
 			if (((ReceiveParam)param).status == ReceiveStatus.receiveOK){
@@ -144,11 +160,11 @@ public class ARP extends InterruptObject implements INetworkLayer,
 							((InterruptObject)m_network_layers).delayInterrupt(0xE0000500, null, 0.0);
 						}
 					}
-					if (ArpTable.containsKey(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0))){
+					//if (ArpTable.containsKey(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0))){
 						ArpTable.put(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0), arpframe.SenderHardwareAddress);
-					}
+					//}
 					if (issame(arpframe.TargetProtocolAddress,m_node.getAddress(m_network_layers))){
-						ArpTable.put(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0), arpframe.SenderHardwareAddress);
+						//ArpTable.put(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0), arpframe.SenderHardwareAddress);
 						if (arpframe.OPER[1]==0x01){
 						//send the arpframe
 						//System.out.println("send arp");
@@ -159,7 +175,6 @@ public class ARP extends InterruptObject implements INetworkLayer,
 					if (arpframe.OPER[1]==0x02){
 						//do with the collision and update the arp table 
 						if (ArpTable.containsKey(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0))){
-							//TODO may cause mac collision
 							
 							if (m_network_layers instanceof InterruptObject){
 								((InterruptObject)m_network_layers).delayInterrupt(0xE0000500, null, 0.0);
@@ -172,10 +187,7 @@ public class ARP extends InterruptObject implements INetworkLayer,
 					*/
 				}
 			}
-			//receive
-			FrameParamStruct frame=new FrameParamStruct(MediumAddress.MAC_ZERO, this.datalink.getUniqueID(), this.getUniqueID(), new byte[0]);
-			this.wait(IDataLinkLayer.INT_FRAME_RECEIVE, Double.NaN);
-			this.datalink.receiveFrame(frame);
+			Receive();
 			break;
 		case IDataLinkLayer.INT_FRAME_TRANSMIT:
 			IDataLinkLayer.TransmitStatus tstatus = ((IDataLinkLayer.TransmitParam) param).status;
@@ -247,14 +259,10 @@ public class ARP extends InterruptObject implements INetworkLayer,
 	
 	@Override
 	public void attachTo(IService service) {
-		// TODO You will attachTo a lower layer in the Protocol Stack. 
 		if (service instanceof SimpleEthernetDatalink){
 			datalink = (SimpleEthernetDatalink)service;
 			wait(IDataLinkLayer.INT_INTERFACE_UP, Double.NaN);
-			//receive
-			FrameParamStruct frame=new FrameParamStruct(MediumAddress.MAC_ZERO, this.datalink.getUniqueID(), this.getUniqueID(), new byte[0]);
-			this.wait(IDataLinkLayer.INT_FRAME_RECEIVE, Double.NaN);
-			this.datalink.receiveFrame(frame);
+			//Receive();
 		}
 		if (service instanceof INode)
 			m_node = (INode) service;
@@ -278,6 +286,13 @@ public class ARP extends InterruptObject implements INetworkLayer,
 	public void setUniqueID(Integer id) {
 		// Set the Protocol ID.
 		UniqueID = id;
+	}
+	
+	private void Receive(){
+		//receive
+		FrameParamStruct frame=new FrameParamStruct(MediumAddress.MAC_ZERO, this.datalink.getUniqueID(), this.getUniqueID(), new byte[0]);
+		this.wait(IDataLinkLayer.INT_FRAME_RECEIVE, Double.NaN);
+		this.datalink.receiveFrame(frame);
 	}
 
 
@@ -334,9 +349,9 @@ class ArpFrame {
 	}
 	
 	public void request(int ptype, byte[] targetIP , MediumAddress senderMac , byte[] senderIP){
-		PLEN = (byte)senderIP.length;
-		PTYPE[1] = (byte)(ptype%256);
-		PTYPE[0] = (byte)(ptype/256);
+		PLEN = (byte)(senderIP.length & 0xFF);
+		PTYPE[1] = (byte)((ptype%256) & 0xFF);
+		PTYPE[0] = (byte)((ptype/256) & 0xFF);
 		TargetProtocolAddress = targetIP;
 		TargetHardwareAddress = MediumAddress.MAC_ZERO;
 		SenderHardwareAddress = senderMac;
@@ -347,9 +362,9 @@ class ArpFrame {
 	}
 	
 	public void send(int ptype, MediumAddress targetMac, byte[] targetIP, MediumAddress senderMac, byte[] senderIP ){
-		PLEN = (byte)senderIP.length;
-		PTYPE[1] = (byte)(ptype%256);
-		PTYPE[0] = (byte)(ptype/256);
+		PLEN = (byte)(senderIP.length & 0xFF);
+		PTYPE[1] = (byte)((ptype%256) & 0xFF);
+		PTYPE[0] = (byte)((ptype/256) & 0xFF);
 		TargetProtocolAddress = targetIP;
 		TargetHardwareAddress = targetMac;
 		SenderHardwareAddress = senderMac;
