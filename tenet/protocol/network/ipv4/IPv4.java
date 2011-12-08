@@ -2,6 +2,7 @@ package tenet.protocol.network.ipv4;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -351,17 +352,32 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 		}
 	}
 	
+	private List<FragmentBuffer> receiveBuffer = new LinkedList<FragmentBuffer>();
 	public void handleReceiveOK(IPv4Packet Packet){
 		Integer destIPAddr = Packet.destIPAddr;
 		P("handleReceiveOK "+(destIPAddr.intValue() == this.getIntegerAddress().intValue())+" portocal id:"+ByteLib.byteToUnsigned(Packet.protocol,0));
-		if ((destIPAddr.intValue() == this.getIntegerAddress().intValue()||(destIPAddr.intValue() == broadcastIP.intValue()) )&& ByteLib.byteToUnsigned(Packet.protocol,0)== m_transport_layers.getUniqueID() ){
-			IPReceiveParam param = new IPReceiveParam(
-					IPReceiveParam.ReceiveType.OK,
-					Packet.destIPAddr,
-					Packet.srcIPAddr,
-					this.getUniqueID(),
-					Packet.data);
-			((InterruptObject) m_transport_layers).delayInterrupt(recPacketSignal, param, 0);
+		if ((destIPAddr.intValue() == this.getIntegerAddress().intValue()||(destIPAddr.intValue() == broadcastIP.intValue()) )&& Packet.getProtocal()== m_transport_layers.getUniqueID() ){
+			FragmentBuffer bufferID = new FragmentBuffer(Packet.srcIPAddr, Packet.destIPAddr, Packet.getProtocal(), Packet.getIndentifier());
+			//Reassembly
+			//TODO check timeout and flush the buffer
+			//System.out.println(IPtoString(this.getIntegerAddress())+" Reassembly");
+			if (!receiveBuffer.contains(bufferID)) {
+				receiveBuffer.add(bufferID);
+				//System.out.println("new bufferID");
+			}
+			int index = receiveBuffer.indexOf(bufferID);
+			if (index < 0) System.out.println("seems error in Reassembly");
+			byte[] data = receiveBuffer.get(index).arrive(Packet);
+			if (data != null){
+				receiveBuffer.remove(index);
+				IPReceiveParam param = new IPReceiveParam(
+						IPReceiveParam.ReceiveType.OK,
+						Packet.destIPAddr,
+						Packet.srcIPAddr,
+						this.getUniqueID(),
+						data);
+				((InterruptObject) m_transport_layers).delayInterrupt(recPacketSignal, param, 0);
+			}
 			return;
 		}
 		IPv4 sendIPv4 = getRoute(destIPAddr);
@@ -524,6 +540,61 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 
 }
 
+class FragmentBuffer {
+	public Integer source;
+	public Integer destination;
+	public int protocol;
+	public int identification;
+	public int totalLength;
+	public int receivedLenth;
+	private List<IPv4Packet> receivedPkt;
+	class PacketComparator implements Comparator<IPv4Packet>{
+		public int compare(IPv4Packet p1, IPv4Packet p2){
+			if (p1.getFragmentOffset() < p2.getFragmentOffset()) return -1;
+			if (p1.getFragmentOffset() > p2.getFragmentOffset()) return 1;
+			return 0;
+		}
+	}
+	
+	public FragmentBuffer(Integer source, Integer destination , int protocol, int identification){
+		this.source = source;
+		this.destination = destination;
+		this.protocol = protocol;
+		this.identification = identification;
+		totalLength = 0;
+		receivedLenth = 0;
+		receivedPkt = new LinkedList<IPv4Packet>();
+	}
+	
+	public byte[] arrive(IPv4Packet pkt){
+		//System.out.println("arrive MF:"+pkt.MF+" Offset:"+pkt.getFragmentOffset()+" Indentifier:"+pkt.getIndentifier()+" "+totalLength+" "+receivedLenth);
+		if (pkt.MF == 0){
+			totalLength = pkt.getFragmentOffset()*8 + pkt.data.length;
+			//System.out.println("totalLength to "+totalLength);
+		}
+		receivedPkt.add(pkt);
+		receivedLenth += pkt.data.length;
+		if (totalLength == receivedLenth){
+			Collections.sort(receivedPkt, new PacketComparator());
+			byte[] OKData = new byte[totalLength];
+			for (int i=0;i<receivedPkt.size();i++){
+				//System.out.println("arraycopy "+receivedPkt.get(i).getFragmentOffset()*8+" "+receivedPkt.get(i).data.length);
+				System.arraycopy(receivedPkt.get(i).data, 0, OKData, receivedPkt.get(i).getFragmentOffset()*8, receivedPkt.get(i).data.length);
+			}
+			return OKData;
+		}else return null;
+	}
+	
+	public boolean equals(Object obuffer){
+		FragmentBuffer buffer = (FragmentBuffer)obuffer;
+		//System.out.println("equals?");
+		
+		if (source.intValue() == buffer.source.intValue() && destination.intValue() == buffer.destination.intValue() && protocol == buffer.protocol && identification == buffer.identification)
+			return true;
+		//System.out.println("not equals");
+		return false;
+	}
+}
 
 class IPv4Packet {
 
@@ -556,6 +627,7 @@ class IPv4Packet {
 		indentifier = Arrays.copyOfRange(packet, 2, 4);
 		fragmentOffset = Arrays.copyOfRange(packet, 4, 6);
 		MF = (ByteLib.byteToUnsigned(fragmentOffset[1],0)/32)%2;
+		fragmentOffset[1] = ByteLib.byteFromUnsigned(fragmentOffset[1]%32,0);
 		TTL = packet[6];
 		protocol = packet[7];
 		headerChecksum = Arrays.copyOfRange(packet, 8, 10);
@@ -574,6 +646,7 @@ class IPv4Packet {
 		ByteLib.bytesFromInt(indentifier, 0, ID);
 		this.MF = MF;
 		ByteLib.bytesFromInt(this.fragmentOffset, 0, fragmentOffset);
+		//System.out.println("IPv4Packet:" +this.getFragmentOffset());
 		this.TTL = ByteLib.byteFromUnsigned(TTL,0);
 		this.protocol = ByteLib.byteFromUnsigned(protocol,0);
 		//System.out.println("portocalid: "+protocol);
@@ -583,6 +656,18 @@ class IPv4Packet {
 		
 		ByteLib.bytesFromInt(this.totalLength, 0, data.length + 18);
 		//TODO this.headerChecksum =
+	}
+	
+	public int getFragmentOffset(){
+		return ByteLib.bytesToInt(fragmentOffset, 0);
+	}
+	
+	public int getProtocal(){
+		return ByteLib.byteToUnsigned(protocol, 0);
+	}
+	
+	public int getIndentifier(){
+		return ByteLib.bytesToInt(indentifier, 0);
 	}
 	
 	public List<IPv4Packet> fragment(int mtu){
