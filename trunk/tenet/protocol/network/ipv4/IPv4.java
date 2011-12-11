@@ -75,7 +75,7 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 		String[] v=ip.split("\\.");
 		if (v.length!=4) System.out.println("seems wrong in IPv4 format");
 		for(int i=0;i<v.length;++i)
-			m_paddr[i]=ByteLib.byteFromUnsigned(Integer.valueOf(v[i]),0);
+			m_paddr[3-i]=ByteLib.byteFromUnsigned(Integer.valueOf(v[i]),0);
 		//System.out.println(getIntegerAddress());
 		this.mask = mask;
 		}catch(Exception e){
@@ -281,7 +281,7 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 	public Integer getLinkNumber(Integer ipaddr) {
 		if (m_node!= null){
 			int linknum = m_node.getIPv4Linknum(ipaddr);
-			//System.out.println(linknum);
+			//ystem.out.println(ipaddr+" "+linknum);
 			if (linknum<0) return null;
 			return linknum;
 		}
@@ -332,7 +332,7 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 			switch (rstatus) {
 			case receiveOK:
 				IPv4Packet packet = new IPv4Packet(((IDataLinkLayer.ReceiveParam) param).frame.dataParam);
-				handleReceiveOK(packet);
+				handleReceiveOK(packet, false);
 				break;
 			case receiveCollision:
 				break;
@@ -353,7 +353,7 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 	}
 	
 	private List<FragmentBuffer> receiveBuffer = new LinkedList<FragmentBuffer>();
-	public void handleReceiveOK(IPv4Packet Packet){
+	public void handleReceiveOK(IPv4Packet Packet, boolean newPkt){
 		Integer destIPAddr = Packet.destIPAddr;
 		P("handleReceiveOK "+(destIPAddr.intValue() == this.getIntegerAddress().intValue())+" portocal id:"+ByteLib.byteToUnsigned(Packet.protocol,0));
 		if ((destIPAddr.intValue() == this.getIntegerAddress().intValue()||(destIPAddr.intValue() == broadcastIP.intValue()) )&& Packet.getProtocal()== m_transport_layers.getUniqueID() ){
@@ -394,7 +394,8 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 			Packet.TTL--;
 			if (Packet.TTL == 0) return;
 			//TODO recalc checksum
-		}
+		}else 
+			if (!newPkt) return;
 		//P(""+(sendIPv4==null));
 		if (sendIPv4.inSubnet(destIPAddr)) getRoutenextIPAddr = destIPAddr;
 		sendIPv4.sendPacketLocal(Packet, getRoutenextIPAddr);
@@ -408,8 +409,9 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 		if(!flag) {			
 			dest_mac=getAddr(nextIPAddr);
 			if(dest_mac==null) {
-				System.out.println("no arp entry");
-				return;
+				//System.out.println("no arp entry");
+				//return;
+				dest_mac=MediumAddress.MAC_ALLONE;
 			}
 		}
 		else
@@ -469,7 +471,7 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 				| (((int) (destIPAddr.intValue() >>> 8 ) & 0xFF) << 16)
 				| (((int) (destIPAddr.intValue()) & 0xFF) << 24);
 		//P("IPinSubnet "+thisAddr+" "+destIPAddr+" "+a+" "+b+" "+(a >>> (32-mask))+" "+(b >>> (32-mask)));
-		if ((a >>> (32-mask))==(b >>> (32-mask))) return true;
+		if ((thisAddr.intValue() >>> (32-mask))==(destIPAddr.intValue() >>> (32-mask))) return true;
 		//if ((thisAddr.intValue() >>> (32-mask))==(destIPAddr.intValue() >>> (32-mask))) return true;
 		return false;
 	}
@@ -507,6 +509,7 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 	public boolean canSend(Integer destIPAddr) {
 		//TODO signal canSendSignal
 		//Do What?
+		if (!m_state) return false;
 		return (getRoute(destIPAddr)!=null);
 	}
 
@@ -516,7 +519,7 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 			Integer clientProtocolId) {
 		P("send "+IPtoString(srcIPAddr)+" "+IPtoString(destIPAddr)+" "+clientProtocolId);
 		IPv4Packet packet = new IPv4Packet(nowID++ ,maxTimeToLive, clientProtocolId, srcIPAddr, destIPAddr, data);
-		this.handleReceiveOK(packet);
+		this.handleReceiveOK(packet, true);
 	}
 
 	@Override

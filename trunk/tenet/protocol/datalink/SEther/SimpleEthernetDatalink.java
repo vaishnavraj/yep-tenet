@@ -524,7 +524,7 @@ public class SimpleEthernetDatalink extends InterruptObject implements
 	@Override
 	public void unregistryClient(IClient<Integer> client) {
 		if (this.m_network_layers.get(client.getUniqueID()) == client) {
-			this.m_network_layers.remove(client);
+			this.m_network_layers.remove(client.getUniqueID());
 			client.detachFrom(this);
 		}
 	}
