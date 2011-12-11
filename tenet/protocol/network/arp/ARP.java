@@ -68,6 +68,8 @@ public class ARP extends InterruptObject implements INetworkLayer,
 		}
 	}
 	
+	static boolean initBroadcast =false;
+	
 	SimpleEthernetDatalink  datalink;
 	INode m_node;
 	
@@ -97,7 +99,7 @@ public class ARP extends InterruptObject implements INetworkLayer,
 		ArpFrame arpframe = new ArpFrame();
 		arpframe.send(PTYPE, desMac, protocolAddr, datalink.getUniqueID(), m_node.getAddress(m_network_layers) );
 		FrameParamStruct frame = new FrameParamStruct(BROADCAST_MA, datalink.getUniqueID(), this.getUniqueID(), arpframe.toByte());
-		Simulator.Schedule(new Send(Simulator.GetTime(),(IReceiver) this.datalink,frame,this));
+		Simulator.Schedule(new Send(Simulator.GetTime()+m_delay,(IReceiver) this.datalink,frame,this));
 	}
 	
 	public static final MediumAddress BROADCAST_MA = MediumAddress.MAC_ALLONE;//new MediumAddress("FF:FF:FF:FF:FF:FF");
@@ -114,7 +116,7 @@ public class ARP extends InterruptObject implements INetworkLayer,
 			//System.out.println(m_network_layers);
 			arpframe.request(PTYPE, protocolAddr,datalink.getUniqueID(),m_node.getAddress(m_network_layers));
 			FrameParamStruct frame = new FrameParamStruct(BROADCAST_MA, datalink.getUniqueID(), this.getUniqueID(), arpframe.toByte());
-			Simulator.Schedule(new Send(Simulator.GetTime(),(IReceiver) this.datalink,frame,this));
+			Simulator.Schedule(new Send(Simulator.GetTime()+m_delay,(IReceiver) this.datalink,frame,this));
 			
 			return null;
 		}
@@ -131,12 +133,14 @@ public class ARP extends InterruptObject implements INetworkLayer,
 			wait(IDataLinkLayer.INT_INTERFACE_DOWN, Double.NaN);
 			this.resetInterrupt(IDataLinkLayer.INT_INTERFACE_UP);
 			Receive();
-			if (m_network_layers != null){
-				//System.out.println("broadcast");
-				ArpFrame arpframe = new ArpFrame();
-				arpframe.request(m_network_layers.getUniqueID(), m_node.getAddress(m_network_layers),datalink.getUniqueID(),m_node.getAddress(m_network_layers));
-				FrameParamStruct frame = new FrameParamStruct(BROADCAST_MA, datalink.getUniqueID(), this.getUniqueID(), arpframe.toByte());
-				Simulator.Schedule(new Send(Simulator.GetTime(),(IReceiver) this.datalink,frame,this));
+			if (initBroadcast){
+				if (m_network_layers != null){
+					//System.out.println("broadcast");
+					ArpFrame arpframe = new ArpFrame();
+					arpframe.request(m_network_layers.getUniqueID(), m_node.getAddress(m_network_layers),datalink.getUniqueID(),m_node.getAddress(m_network_layers));
+					FrameParamStruct frame = new FrameParamStruct(BROADCAST_MA, datalink.getUniqueID(), this.getUniqueID(), arpframe.toByte());
+					Simulator.Schedule(new Send(Simulator.GetTime(),(IReceiver) this.datalink,frame,this));
+				}
 			}
 			break;
 		case IDataLinkLayer.INT_INTERFACE_DOWN:

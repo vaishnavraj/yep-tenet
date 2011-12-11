@@ -28,7 +28,7 @@ int b = (int) (((int) (destIPAddr.intValue() >>> 24 ) & 0xFF) << 0)
 		| (((int) (destIPAddr.intValue() >>> 8 ) & 0xFF) << 16)
 		| (((int) (destIPAddr.intValue()) & 0xFF) << 24);
 		//System.out.println("RouteEntryinSubnet "+address+" "+destIPAddr+" "+a+" "+b+" "+(a >>> (32-mask))+" "+(b >>> (32-mask)));
-		if ((a >>> (32-mask))==(b >>> (32-mask))) return true;
+		if ((address.intValue() >>> (32-mask))==(destIPAddr.intValue() >>> (32-mask))) return true;
 		return false;
 	}
 	

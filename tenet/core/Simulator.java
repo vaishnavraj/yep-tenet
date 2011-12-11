@@ -84,9 +84,6 @@ public class Simulator implements IInvoker, IReceiver {
 		while (!this.m_cmdQueue.isEmpty()) {
 			Command cmd = this.m_cmdQueue.poll();
 			m_time = cmd.getExecuteTime();
-			/*
-			System.out.println(m_time+" "+cmd.getName());
-			*/
 			IParam result = cmd._execute();
 			assert result instanceof SystemPause : "System Pause";
 			if (cmd instanceof SystemStop){
