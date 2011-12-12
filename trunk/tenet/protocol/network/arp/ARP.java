@@ -336,6 +336,7 @@ class ArpFrame {
 	}
 	
 	public ArpFrame(byte[] framedata){
+		//TODO check Length OK
 		HLEN = 6;
 		PLEN = framedata[5];
 		HTYPE = new byte[2];
@@ -354,8 +355,7 @@ class ArpFrame {
 	
 	public void request(int ptype, byte[] targetIP , MediumAddress senderMac , byte[] senderIP){
 		PLEN = (byte)(senderIP.length & 0xFF);
-		PTYPE[1] = (byte)((ptype%256) & 0xFF);
-		PTYPE[0] = (byte)((ptype/256) & 0xFF);
+		ByteLib.bytesFromInt(PTYPE, 0, ptype);
 		TargetProtocolAddress = targetIP;
 		TargetHardwareAddress = MediumAddress.MAC_ZERO;
 		SenderHardwareAddress = senderMac;
@@ -367,8 +367,7 @@ class ArpFrame {
 	
 	public void send(int ptype, MediumAddress targetMac, byte[] targetIP, MediumAddress senderMac, byte[] senderIP ){
 		PLEN = (byte)(senderIP.length & 0xFF);
-		PTYPE[1] = (byte)((ptype%256) & 0xFF);
-		PTYPE[0] = (byte)((ptype/256) & 0xFF);
+		ByteLib.bytesFromInt(PTYPE, 0, ptype);
 		TargetProtocolAddress = targetIP;
 		TargetHardwareAddress = targetMac;
 		SenderHardwareAddress = senderMac;
