@@ -70,7 +70,6 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 	
 
 	public IPv4(String ip, Integer mask){
-		//XXOO fuck 3.2.1.0
 		try{
 		String[] v=ip.split("\\.");
 		if (v.length!=4) System.out.println("seems wrong in IPv4 format");
@@ -602,7 +601,8 @@ class FragmentBuffer {
 class IPv4Packet {
 
 	//head 18 bytes
-	public byte[] totalLength = new byte[2]; //2 bytes
+	//2 bytes
+	public byte[] totalLength = new byte[2]; 
 
 	//4 bytes
 	public byte[] indentifier = new byte[2];
@@ -626,6 +626,7 @@ class IPv4Packet {
 		
 	
 	public IPv4Packet(byte[] packet){
+		//TODO check Length OK and checksum
 		totalLength = Arrays.copyOfRange(packet, 0, 2);
 		indentifier = Arrays.copyOfRange(packet, 2, 4);
 		fragmentOffset = Arrays.copyOfRange(packet, 4, 6);
@@ -658,7 +659,6 @@ class IPv4Packet {
 		this.data = data;
 		
 		ByteLib.bytesFromInt(this.totalLength, 0, data.length + 18);
-		//TODO this.headerChecksum =
 	}
 	
 	public int getFragmentOffset(){
@@ -719,6 +719,7 @@ class IPv4Packet {
 		System.arraycopy(fragmentOffset, 0, packet, 4, 2);
 		packet[6] = TTL;
 		packet[7] = protocol;
+		//TODO calc this.headerChecksum =
 		System.arraycopy(headerChecksum, 0, packet, 8, 2);
 		
 		byte[] srcIP = new byte[4];
