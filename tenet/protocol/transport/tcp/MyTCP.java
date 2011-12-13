@@ -18,7 +18,7 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 	private IPProtocol m_IP;
 	private boolean m_state;
 	
-	private Map<Integer, IClient<Integer>> m_app_layers = new HashMap<Integer, IClient<Integer>>();
+	private IClient<Integer> m_app_layers;
 	
 	public static final Integer protocolID = 0x06;
 	
@@ -64,18 +64,18 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 
 	@Override
 	public void registryClient(IClient<Integer> client) {
-		m_app_layers.put(client.getUniqueID(),client);
+		m_app_layers = client;
 		client.attachTo(this);
 	}
 
 	@Override
 	public void unregistryClient(Integer id) {
-		if (m_app_layers.containsKey(id)) m_app_layers.remove(id);
+		//TODO do what?
 	}
 
 	@Override
 	public void unregistryClient(IClient<Integer> client) {
-		if (m_app_layers.containsKey(client.getUniqueID())) m_app_layers.remove(client.getUniqueID());
+		if (client == m_app_layers) m_app_layers = null;
 		client.detachFrom(this);
 
 	}
@@ -117,7 +117,9 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 	
 	@Override
 	public int socket() {
-		MySocket socket = new MySocket()
+		MySocket socket = new MySocket(nextHandle);
+		nextHandle++;
+		
 	}
 
 	@Override
