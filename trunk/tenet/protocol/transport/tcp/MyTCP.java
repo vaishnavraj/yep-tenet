@@ -2,23 +2,31 @@ package tenet.protocol.transport.tcp;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
 
+import org.knf.tenet.test.util.TestSessionLayer;
+
+import tenet.node.INode;
+import tenet.node.MyNode;
 import tenet.protocol.IProtocol;
 import tenet.protocol.datalink.IDataLinkLayer;
 import tenet.protocol.interrupt.InterruptObject;
 import tenet.protocol.interrupt.InterruptParam;
 import tenet.protocol.network.ipv4.IPProtocol;
+import tenet.protocol.transport.tcp.TCPProtocol.ReturnStatus;
+import tenet.protocol.transport.tcp.TCPProtocol.ReturnType;
 import tenet.util.ByteLib;
 import tenet.util.pattern.serviceclient.IClient;
 import tenet.util.pattern.serviceclient.IService;
 
 public class MyTCP extends InterruptObject implements TCPProtocol {
 
+	private INode m_node;
 	private IPProtocol m_IP;
 	private boolean m_state;
 	
-	private IClient<Integer> m_app_layers;
+	private LinkedList<IClient<Integer>> m_app_layers = new LinkedList<IClient<Integer>>();
 	
 	public static final Integer protocolID = 0x06;
 	
@@ -64,18 +72,18 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 
 	@Override
 	public void registryClient(IClient<Integer> client) {
-		m_app_layers = client;
+		m_app_layers.add(client);
 		client.attachTo(this);
 	}
 
 	@Override
 	public void unregistryClient(Integer id) {
-		//TODO do what?
+		
 	}
 
 	@Override
 	public void unregistryClient(IClient<Integer> client) {
-		if (client == m_app_layers) m_app_layers = null;
+		m_app_layers.remove(client);
 		client.detachFrom(this);
 
 	}
@@ -85,6 +93,9 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 		if(service instanceof IPProtocol) {
 			m_IP = (IPProtocol) service;
 			wait(IPProtocol.recPacketSignal, Double.NaN);
+		}
+		if(service instanceof INode) {
+			m_node = (INode) service;
 		}
 
 	}
@@ -113,36 +124,43 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 	public int nextHandle = 1;
 	
 	public Map<Integer, MySocket> handleSocket = new HashMap<Integer, MySocket>();
-	public Map<Integer, Integer> portHandle = new HashMap<Integer, Integer>();
+	public Map<Integer, MySocket> portHandle = new HashMap<Integer, MySocket>();
+	public MySocket idleSocket = new MySocket(0, this);
 	
 	@Override
 	public int socket() {
-		MySocket socket = new MySocket(nextHandle);
+		MySocket socket = new MySocket(nextHandle,this);
+		handleSocket.put(nextHandle, socket);
 		nextHandle++;
+		return nextHandle-1;
 		
 	}
 
 	@Override
 	public int bind(int handle, int port) {
-		// TODO Auto-generated method stub
+		if (portHandle.containsKey(port)) return -1;
+		portHandle.put(port, handleSocket.get(handle));
+		handleSocket.get(port).bind(ByteLib.bytesToInt(m_node.getAddress(m_IP), 0), port);
 		return 0;
 	}
 
 	@Override
 	public void listen(int handle) {
-		// TODO Auto-generated method stub
+		//check in the postHandle
+		handleSocket.get(handle).Listen();
 
 	}
 
 	@Override
 	public void connect(int handle, int dstIP, int dstPort) {
-		// TODO Auto-generated method stub
+		//check in the postHandle
+		handleSocket.get(handle).Connect(dstIP, dstPort);
 
 	}
 
 	@Override
 	public void close(int handle) {
-		// TODO Auto-generated method stub
+		handleSocket.get(handle).close();
 
 	}
 
@@ -154,19 +172,19 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 
 	@Override
 	public void abort(int handle) {
-		// TODO Auto-generated method stub
+		handleSocket.get(handle).abort();
 
 	}
 
 	@Override
 	public void send(int handle, byte[] data) {
-		// TODO Auto-generated method stub
+		handleSocket.get(handle).send(data);
 
 	}
 
 	@Override
 	public void receive(int handle) {
-		// TODO Auto-generated method stub
+		handleSocket.get(handle).receive();
 
 	}
 
@@ -175,5 +193,22 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 		// TODO Auto-generated method stub
 
 	}
+	
+	public void ReturnMsg(ReturnType type, int handle,	ReturnStatus state, int result, byte[] data) {
+		ReturnParam param = new ReturnParam();
+		param.type = type;
+		param.handle = handle;
+		param.status = state;
+		param.result = result;
+		param.data = data;
+		for (IClient<Integer> client: m_app_layers )
+			if (client instanceof TestSessionLayer && ((TestSessionLayer)client).handle == param.handle)
+				((InterruptObject)client).delayInterrupt(INT_RETURN, param, 0);
+	}
+	
+	public void sendSeg(TCPSegment seg, Integer src_ip, Integer dest_ip) {
+		m_IP.sendPacket(seg.toBytes(), src_ip, dest_ip, this.getUniqueID());
+	}
+
 
 }
