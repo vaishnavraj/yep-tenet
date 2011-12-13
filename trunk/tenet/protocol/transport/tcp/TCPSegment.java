@@ -38,6 +38,7 @@ public class TCPSegment {
 	}
 	
 	public TCPSegment(byte[] Segment){
+		//TODO check Length OK and checksum
 		SourcePort = ByteLib.bytesToInt(Arrays.copyOfRange(Segment, 0, 2), 0);
 		DestinationPort = ByteLib.bytesToInt(Arrays.copyOfRange(Segment, 2, 4), 0);
 		
@@ -56,7 +57,7 @@ public class TCPSegment {
 		CheckSum = ByteLib.bytesToInt(Arrays.copyOfRange(Segment, 16, 18), 0);
 		
 		data = Arrays.copyOfRange(Segment, 18, Segment.length);
-		//TODO check checksum
+		
 	}
 	
 	public void setFIN(){
