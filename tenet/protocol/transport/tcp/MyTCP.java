@@ -1,6 +1,8 @@
 package tenet.protocol.transport.tcp;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 import tenet.protocol.IProtocol;
 import tenet.protocol.datalink.IDataLinkLayer;
@@ -16,7 +18,7 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 	private IPProtocol m_IP;
 	private boolean m_state;
 	
-	private IClient<Integer> m_app_layers;
+	private Map<Integer, IClient<Integer>> m_app_layers = new HashMap<Integer, IClient<Integer>>();
 	
 	public static final Integer protocolID = 0x06;
 	
@@ -62,19 +64,18 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 
 	@Override
 	public void registryClient(IClient<Integer> client) {
-		m_app_layers = client;
+		m_app_layers.put(client.getUniqueID(),client);
 		client.attachTo(this);
 	}
 
 	@Override
 	public void unregistryClient(Integer id) {
-		// TODO Auto-generated method stub
-		//do what?
+		if (m_app_layers.containsKey(id)) m_app_layers.remove(id);
 	}
 
 	@Override
 	public void unregistryClient(IClient<Integer> client) {
-		if (m_app_layers == client) m_app_layers = null;
+		if (m_app_layers.containsKey(client.getUniqueID())) m_app_layers.remove(client.getUniqueID());
 		client.detachFrom(this);
 
 	}
@@ -107,10 +108,16 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 
 	}
 
+	
+	//there are some important variables for TCP find right socket
+	public int nextHandle = 1;
+	
+	public Map<Integer, MySocket> handleSocket = new HashMap<Integer, MySocket>();
+	public Map<Integer, Integer> portHandle = new HashMap<Integer, Integer>();
+	
 	@Override
 	public int socket() {
-		// TODO Auto-generated method stub
-		return 0;
+		MySocket socket = new MySocket()
 	}
 
 	@Override

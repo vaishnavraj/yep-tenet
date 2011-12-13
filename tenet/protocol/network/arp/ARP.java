@@ -336,7 +336,7 @@ class ArpFrame {
 	}
 	
 	public ArpFrame(byte[] framedata){
-		//TODO check Length OK
+		//TODO check Length OK and checksum
 		HLEN = 6;
 		PLEN = framedata[5];
 		HTYPE = new byte[2];
