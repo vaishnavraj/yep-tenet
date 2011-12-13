@@ -12,18 +12,18 @@ public interface TCPProtocol extends IStateSetable, IProtocol, IRegistryableServ
 	
 	public static final int INT_RETURN=0x7100001;
 	
-	enum ReturnStatus {
-		CONN_CLOSING,CONN_RESET,CONN_ALREADY_EXIST,CONN_REFUSED,OK
+	public static enum ReturnStatus {
+		CONN_CLOSING,CONN_RESET,CONN_ALREADY_EXIST,CONN_NOT_EXIST,CONN_REFUSED,OK
 	}
 	
-	enum ReturnType{
+	public static enum ReturnType{
 		LISTEN,CONNECT,ABORT,SEND,RECEIVE,CLOSE,ACCEPT
 	}
 	
 	class ReturnParam extends InterruptParam {
 		public ReturnType type;
 		public int handle;
-		public int status;
+		public ReturnStatus status;
 		public int result;
 		public byte[] data;
 	}
