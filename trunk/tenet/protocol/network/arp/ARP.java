@@ -91,14 +91,14 @@ public class ARP extends InterruptObject implements INetworkLayer,
 	
 
 	
-	public void send(int HTYPE, byte[] hardwareAddr, int PTYPE, byte[] protocolAddr) {
+	public void send(MediumAddress dest, int HTYPE, byte[] hardwareAddr, int PTYPE, byte[] protocolAddr) {
 		//The basic function that you can send a arp package to the others.
 		//SEther's HTYPE is 1, IPv4's PTYPE is 0x0800 as default
 		//Some different PTYPE will appear in the verification
 		MediumAddress desMac = MediumAddress.fromBytes(hardwareAddr);	
 		ArpFrame arpframe = new ArpFrame();
 		arpframe.send(PTYPE, desMac, protocolAddr, datalink.getUniqueID(), m_node.getAddress(m_network_layers) );
-		FrameParamStruct frame = new FrameParamStruct(BROADCAST_MA, datalink.getUniqueID(), this.getUniqueID(), arpframe.toByte());
+		FrameParamStruct frame = new FrameParamStruct(dest, datalink.getUniqueID(), this.getUniqueID(), arpframe.toByte());
 		Simulator.Schedule(new Send(Simulator.GetTime()+m_delay,(IReceiver) this.datalink,frame,this));
 	}
 	
@@ -164,15 +164,16 @@ public class ARP extends InterruptObject implements INetworkLayer,
 							((InterruptObject)m_network_layers).delayInterrupt(0xE0000500, null, 0.0);
 						}
 					}
-					//if (ArpTable.containsKey(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0))){
+					
+					if (ArpTable.containsKey(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0))){
 						ArpTable.put(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0), arpframe.SenderHardwareAddress);
-					//}
+					}
 					if (issame(arpframe.TargetProtocolAddress,m_node.getAddress(m_network_layers))){
-						//ArpTable.put(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0), arpframe.SenderHardwareAddress);
+						ArpTable.put(ByteLib.bytesToInt(arpframe.SenderProtocolAddress,0), arpframe.SenderHardwareAddress);
 						if (arpframe.OPER[1]==0x01){
 						//send the arpframe
-						//System.out.println("send arp");
-						send(ByteLib.bytesToInt(arpframe.HTYPE,0), arpframe.SenderHardwareAddress.toBytes(), ByteLib.bytesToInt(arpframe.PTYPE,0), arpframe.SenderProtocolAddress);
+						//System.out.println("send arp"+arpframe.SenderHardwareAddress);
+						send(arpframe.SenderHardwareAddress, ByteLib.bytesToInt(arpframe.HTYPE,0), arpframe.SenderHardwareAddress.toBytes(), ByteLib.bytesToInt(arpframe.PTYPE,0), arpframe.SenderProtocolAddress);
 						}
 					}
 					/*
