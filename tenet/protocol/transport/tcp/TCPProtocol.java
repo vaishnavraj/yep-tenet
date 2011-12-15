@@ -13,7 +13,7 @@ public interface TCPProtocol extends IStateSetable, IProtocol, IRegistryableServ
 	public static final int INT_RETURN=0x7100001;
 	
 	public static enum ReturnStatus {
-		CONN_CLOSING,CONN_RESET,CONN_ALREADY_EXIST,CONN_NOT_EXIST,CONN_REFUSED,OK
+		CONN_CLOSING,CONN_RESET,CONN_ALREADY_EXIST,CONN_NOT_EXIST,CONN_REFUSED,OK,OTHER_ERROR
 	}
 	
 	public static enum ReturnType{

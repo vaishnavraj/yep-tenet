@@ -55,8 +55,7 @@ public class TCPSegment {
 		WindowSize = ByteLib.bytesToInt(Arrays.copyOfRange(Segment, 14, 16), 0);
 		
 		CheckSum = ByteLib.bytesToInt(Arrays.copyOfRange(Segment, 16, 18), 0);
-		
-		data = Arrays.copyOfRange(Segment, 18, Segment.length);
+		if (Segment.length>18) data = Arrays.copyOfRange(Segment, 18, Segment.length);
 		
 	}
 	
@@ -83,6 +82,11 @@ public class TCPSegment {
 	}
 	public boolean getACK(){
 		return (ACK == 1);
+	}
+	
+	public int getdataLength(){
+		if (data!=null) return data.length;
+		return 0;
 	}
 	
 	public byte[] toBytes(){
