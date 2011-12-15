@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.knf.tenet.test.util.TestSessionLayer;
 
+import tenet.core.Simulator;
 import tenet.node.INode;
 import tenet.node.MyNode;
 import tenet.protocol.IProtocol;
@@ -32,7 +33,7 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 	public static final Integer protocolID = 0x06;
 	
 	public void P(String s){
-		System.out.println(s);
+		//System.out.println(s);
 	}
 	
 	public MyTCP(){
@@ -259,7 +260,10 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 	}
 	
 	public void sendSeg(TCPSegment seg, Integer src_ip, Integer dest_ip) {
-		P("send Seg "+src_ip+" "+dest_ip);
+		System.out.println("send to IP:"+dest_ip+" port:"+seg.DestinationPort+" SEQ:"
+				+seg.SequenceNumber+" ACKN:"+seg.AcknowledgmentNumber
+				+" ACK:"+seg.getACK()+" RST:"+seg.getRST()+" SYN:"+seg.getSYN()+" FIN:"+seg.getFIN()
+				+" DATA:"+seg.data+" "+Simulator.GetTime());
 		m_IP.sendPacket(seg.toBytes(), src_ip, dest_ip, this.getUniqueID());
 	}
 
