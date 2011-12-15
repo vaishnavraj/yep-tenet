@@ -252,7 +252,8 @@ public class MySocket extends InterruptObject {
 		case TIME_WAIT:
 		case LAST_ACK:
 		default:
-			m_tcp.ReturnMsg(ReturnType.RECEIVE, handle, ReturnStatus.CONN_CLOSING, -1, null);
+			//TODO MSL
+			//m_tcp.ReturnMsg(ReturnType.RECEIVE, handle, ReturnStatus.CONN_CLOSING, -1, null);
 			break;
 		}
 	}
@@ -293,6 +294,7 @@ public class MySocket extends InterruptObject {
 			seg.SequenceNumber = SND_NXT;
 			seg.setFIN();
 			sendSEG(seg, dest_ip);
+			SND_NXT++;
 			changeState(State.FIN_WAIT_1);
 			break;
 		case CLOSE_WAIT:
@@ -346,10 +348,12 @@ public class MySocket extends InterruptObject {
 	
 	//Segment Arrives
 	public void segmentArrives(TCPSegment recv, Integer srcip){
+		///*
 		System.out.println("recive from IP:"+srcip+" port:"+recv.SourcePort+" SEQ:"
 				+recv.SequenceNumber+" ACKN:"+recv.AcknowledgmentNumber
-				+" ACK:"+recv.getACK()+" RST:"+recv.getRST()+" SYN:"+recv.getSYN()
+				+" ACK:"+recv.getACK()+" RST:"+recv.getRST()+" SYN:"+recv.getSYN()+" FIN:"+recv.getFIN()
 				+" DATA:"+recv.data);
+		//*/
 		switch (CurrState){
 		case CLOSED:
 			seg = new TCPSegment(src_port, recv.SourcePort);
@@ -528,7 +532,7 @@ public class MySocket extends InterruptObject {
 					}else{
 						if (recv.getACK() 
 								&& SND_UNA<recv.AcknowledgmentNumber && recv.AcknowledgmentNumber <=SND_NXT 
-								&& FINacked()){
+								&& FINacked(recv)){
 							this.resetInterrupt(REXMT);
 							this.resetInterrupt(TIMEWAIT);
 							wait(TIMEWAIT, 2*MSL);
@@ -599,10 +603,12 @@ public class MySocket extends InterruptObject {
 							m_tcp.ReturnMsg(ReturnType.RECEIVE, handle, ReturnStatus.CONN_RESET, -1, null);
 						changeState(State.CLOSED);
 					}else{
-						if (recv.getACK() 
-								&& SND_UNA<recv.AcknowledgmentNumber && recv.AcknowledgmentNumber <=SND_NXT 
-								&& FINacked()){
+						if (recv.getACK()){
+							removeAckedSeg(recv.AcknowledgmentNumber);
+							if (SND_UNA<recv.AcknowledgmentNumber && recv.AcknowledgmentNumber <=SND_NXT 
+								&& FINacked(recv)){
 							changeState(State.CLOSED);
+							}
 						}	
 					}
 				}
@@ -633,9 +639,12 @@ public class MySocket extends InterruptObject {
 		//if (recv.SequenceNumber != RCV_NXT) return false;
 	}
 	
-	private boolean FINacked(){
+	private boolean FINacked(TCPSegment recv){
 		for (int i=0;i<RexmtQueue.size();i++){
-			if (RexmtQueue.get(i).getFIN()) return false;
+			if (RexmtQueue.get(i).getFIN()) {
+				System.out.println("FIN_WAIT_1 "+RexmtQueue.get(i).SequenceNumber);
+				return false;
+			}
 		}
 		return true;
 	}
@@ -675,7 +684,10 @@ public class MySocket extends InterruptObject {
 	}
 	
 	private void fw1(TCPSegment recv){
-		if (!recv.getACK()) return;
+		if (!recv.getACK()){
+			return;
+		}
+		System.out.println("removeAckedSeg"+SND_UNA+" "+recv.AcknowledgmentNumber+" "+SND_NXT);
 		if (SND_UNA<recv.AcknowledgmentNumber && recv.AcknowledgmentNumber <=SND_NXT){
 			WinUpdate(recv);
 			//SND_WND = Math.min(CWND, recv.WindowSize);
@@ -684,7 +696,8 @@ public class MySocket extends InterruptObject {
 		}
 		//fw2
 		receiveData(recv);
-		if (FINacked()){
+		
+		if (FINacked(recv)){
 			if (recv.getFIN()){
 				FINbit(recv);
 				this.resetInterrupt(REXMT);
@@ -695,6 +708,7 @@ public class MySocket extends InterruptObject {
 				changeState(State.FIN_WAIT_2);
 			}
 		}else{
+			System.out.println("FIN_WAIT_1");
 			if (recv.getFIN()){
 				FINbit(recv);
 				changeState(State.CLOSING);
@@ -703,7 +717,17 @@ public class MySocket extends InterruptObject {
 	}
 	
 	private void fwt1(TCPSegment recv){
-		if (!recv.getACK()) return;
+		if (!recv.getACK()){
+			if (recv.getFIN()){
+				FINbit(recv);
+				this.resetInterrupt(REXMT);
+				this.resetInterrupt(TIMEWAIT);
+				System.out.println("TIMEWAIT"+2*MSL);
+				wait(TIMEWAIT, 2*MSL);
+				changeState(State.TIME_WAIT);
+			}
+			return;
+		}
 		if (SND_UNA<recv.AcknowledgmentNumber && recv.AcknowledgmentNumber <=SND_NXT){
 			WinUpdate(recv);
 			//SND_WND = Math.min(CWND, recv.WindowSize);
@@ -735,6 +759,7 @@ public class MySocket extends InterruptObject {
 	private void sr2(TCPSegment recv){
 		if (recv.getACK()){
 			if (SND_UNA<=recv.AcknowledgmentNumber && recv.AcknowledgmentNumber <= SND_NXT){
+				removeAckedSeg(recv.AcknowledgmentNumber);
 				changeState(State.ESTABLISHED);
 			}else{
 				if (recv.getFIN()){
@@ -756,7 +781,20 @@ public class MySocket extends InterruptObject {
 	}
 	
 	private void es2(TCPSegment recv){
-		if (!recv.getACK()) return;
+		if (!recv.getACK()) {
+			if (recv.getFIN()){
+				FINbit(recv);
+				changeState(State.CLOSE_WAIT);
+				seg = new TCPSegment(src_port, dest_port);
+				seg.SequenceNumber = SND_NXT;
+				seg.AcknowledgmentNumber = RCV_NXT;
+				seg.setFIN();
+				SND_NXT++;
+				sendSEG(seg, dest_ip);
+				changeState(State.LAST_ACK);
+			}
+			return;
+		}
 		if (SND_UNA<=recv.AcknowledgmentNumber && recv.AcknowledgmentNumber <= SND_NXT){
 			WinUpdate(recv);
 			//SND_WND = Math.min(CWND, recv.WindowSize);
@@ -820,10 +858,6 @@ public class MySocket extends InterruptObject {
 			}
 			RexmtQueue.add(seg);
 		}
-		System.out.println("send to IP:"+dest_ip+" port:"+seg.DestinationPort+" SEQ:"
-				+seg.SequenceNumber+" ACKN:"+seg.AcknowledgmentNumber
-				+" ACK:"+seg.getACK()+" RST:"+seg.getRST()+" SYN:"+seg.getSYN()
-				+" DATA:"+seg.data+" "+Simulator.GetTime());
 		m_tcp.sendSeg(seg, src_ip, dest_ip);
 		
 	}
@@ -860,6 +894,7 @@ public class MySocket extends InterruptObject {
 	}
 	
 	private void removeAckedSeg(int acknum){
+		
 		if (RexmtQueue.size()>0 && RexmtQueue.peek().SequenceNumber == acknum){
 			if (transmitCount == 0){
 				if (SRTT < 0){
@@ -873,8 +908,10 @@ public class MySocket extends InterruptObject {
 			}
 		}
 		this.resetInterrupt(REXMT);
-		while (RexmtQueue.size()>0 && RexmtQueue.peek().AcknowledgmentNumber < acknum ) RexmtQueue.remove();
+		while (RexmtQueue.size()>0 && RexmtQueue.peek().SequenceNumber < acknum ) RexmtQueue.remove();
+		
 		if (RexmtQueue.size()>0) {
+			System.out.println("removeAckedSeg "+RexmtQueue.peek().SequenceNumber);
 			transmitTime = Simulator.GetTime();
 			transmitCount = 1;
 			myRTO = 1;
@@ -888,6 +925,9 @@ public class MySocket extends InterruptObject {
 		switch (signal) {
 		case REXMT:
 			rexmt();
+			break;
+		case TIMEWAIT:
+			changeState(State.CLOSED);
 			break;
 		}
 		

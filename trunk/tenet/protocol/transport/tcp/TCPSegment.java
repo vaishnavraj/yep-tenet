@@ -129,8 +129,4 @@ public class TCPSegment {
 		return segment;
 	}
 	
-	
-	
-	
 }
-
