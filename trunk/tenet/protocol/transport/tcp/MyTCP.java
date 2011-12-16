@@ -33,7 +33,7 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 	public static final Integer protocolID = 0x06;
 	
 	public void P(String s){
-		//System.out.println(s);
+		System.out.println(s);
 	}
 	
 	public MyTCP(){
@@ -151,6 +151,7 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 	@Override
 	public int bind(int handle, int port) {
 		P("bind"+handle+" "+port);
+		if (handleSocket.get(handle).src_port == port) return 0;
 		if (portHandle.containsKey(port)) return -1;
 		portHandle.put(port, handleSocket.get(handle));
 		
@@ -260,6 +261,7 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 	}
 	
 	public void sendSeg(TCPSegment seg, Integer src_ip, Integer dest_ip) {
+		if (src_ip == null) src_ip = ByteLib.bytesToInt(m_node.getAddress(m_IP), 0);
 		System.out.println("send to IP:"+dest_ip+" port:"+seg.DestinationPort+" SEQ:"
 				+seg.SequenceNumber+" ACKN:"+seg.AcknowledgmentNumber
 				+" ACK:"+seg.getACK()+" RST:"+seg.getRST()+" SYN:"+seg.getSYN()+" FIN:"+seg.getFIN()
