@@ -8,6 +8,7 @@ import tenet.protocol.interrupt.InterruptObject;
 import tenet.protocol.interrupt.InterruptParam;
 import tenet.protocol.transport.tcp.TCPProtocol.ReturnStatus;
 import tenet.protocol.transport.tcp.TCPProtocol.ReturnType;
+import tenet.util.ByteLib;
 
 public class MySocket extends InterruptObject {
 	public int handle;
@@ -123,8 +124,10 @@ public class MySocket extends InterruptObject {
 			ReceiveBuffer.clear();
 			OORCV.clear();
 			RexmtQueue.clear();
+			this.resetInterrupt(REXMT);
 			Receive = 0;
 			Close = 0;
+			m_tcp.ReturnMsg(ReturnType.CLOSE, handle, ReturnStatus.OK, 0, null);
 		}
 		if (newState == State.ESTABLISHED){
 			while (SendBuffer.size()>0){
@@ -253,7 +256,7 @@ public class MySocket extends InterruptObject {
 		case LAST_ACK:
 		default:
 			//TODO MSL
-			//m_tcp.ReturnMsg(ReturnType.RECEIVE, handle, ReturnStatus.CONN_CLOSING, -1, null);
+			m_tcp.ReturnMsg(ReturnType.RECEIVE, handle, ReturnStatus.CONN_CLOSING, -1, null);
 			break;
 		}
 	}
@@ -266,7 +269,7 @@ public class MySocket extends InterruptObject {
 			break;
 		case LISTEN:
 		case SYN_SENT:
-			if (Receive>0) m_tcp.ReturnMsg(ReturnType.RECEIVE, handle, ReturnStatus.CONN_CLOSING, -1, null);	
+			if (Receive>0) m_tcp.ReturnMsg(ReturnType.RECEIVE, handle, ReturnStatus.CONN_CLOSING, -1, null);
 			changeState(State.CLOSED);
 			break;
 		case SYN_RCVD:
@@ -349,19 +352,22 @@ public class MySocket extends InterruptObject {
 	//Segment Arrives
 	public void segmentArrives(TCPSegment recv, Integer srcip){
 		///*
-		System.out.println("recive from IP:"+srcip+" port:"+recv.SourcePort+" SEQ:"
+		System.out.println(handle+" :recive from IP:"+srcip+" port:"+recv.SourcePort+" SEQ:"
 				+recv.SequenceNumber+" ACKN:"+recv.AcknowledgmentNumber
 				+" ACK:"+recv.getACK()+" RST:"+recv.getRST()+" SYN:"+recv.getSYN()+" FIN:"+recv.getFIN()
 				+" DATA:"+recv.data);
 		//*/
 		switch (CurrState){
 		case CLOSED:
+			if (recv.getRST()) return;
 			seg = new TCPSegment(src_port, recv.SourcePort);
 			if (recv.getACK()){
 				seg.SequenceNumber = recv.AcknowledgmentNumber;
 				seg.setRST();
 			}else{
 				seg.SequenceNumber = recv.SequenceNumber + seg.getdataLength();
+				seg.AcknowledgmentNumber = recv.SequenceNumber + seg.getdataLength();
+				if (recv.getFIN() || recv.getSYN()) seg.AcknowledgmentNumber++;
 				seg.setRST();
 				seg.setACK();
 			}
@@ -670,7 +676,8 @@ public class MySocket extends InterruptObject {
 			if (Receive>0 && recv.data!=null){
 				m_tcp.ReturnMsg(ReturnType.RECEIVE, handle, ReturnStatus.OK, 0, recv.data);
 				Receive--;
-			}else ReceiveBuffer.add(recv.data);
+			}else 
+				if (recv.data!=null) ReceiveBuffer.add(recv.data);
 			System.out.println("datalength "+recv.getdataLength());
 			RCV_NXT = recv.SequenceNumber + recv.getdataLength();
 			seg = new TCPSegment(src_port, dest_port);
@@ -864,7 +871,7 @@ public class MySocket extends InterruptObject {
 	
 	//Rexmt Timeout
 	private void rexmt(){
-		System.out.println("rexmt"+Simulator.GetTime());
+		System.out.println(handle+" :rexmt"+Simulator.GetTime());
 		this.resetInterrupt(REXMT);
 		switch (CurrState){
 		case ESTABLISHED:
