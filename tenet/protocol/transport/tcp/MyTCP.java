@@ -171,9 +171,11 @@ public class MyTCP extends InterruptObject implements TCPProtocol {
 	@Override
 	public void connect(int handle, int dstIP, int dstPort) {
 		P("Connect IP:"+dstIP+" Port:"+dstPort);
-		//check in the postHandle
-		for (int i=10000;i<0xFFFF;i++){
-			if (bind(handle, i)==0) break;
+		if (!portHandle.containsValue(handleSocket.get(handle))){
+			//check in the postHandle
+			for (int i=10000;i<0xFFFF;i++){
+				if (bind(handle, i)==0) break;
+			}
 		}
 		handleSocket.get(handle).Connect(dstIP, dstPort);
 
