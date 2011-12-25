@@ -536,13 +536,15 @@ public class MySocket extends InterruptObject {
 							m_tcp.ReturnMsg(ReturnType.RECEIVE, handle, ReturnStatus.CONN_RESET, -1, null);
 						changeState(State.CLOSED);
 					}else{
-						if (recv.getACK() 
-								&& SND_UNA<recv.AcknowledgmentNumber && recv.AcknowledgmentNumber <=SND_NXT 
+						if (recv.getACK()){
+							removeAckedSeg(recv.AcknowledgmentNumber);
+							if (SND_UNA<recv.AcknowledgmentNumber && recv.AcknowledgmentNumber <=SND_NXT 
 								&& FINacked(recv)){
-							this.resetInterrupt(REXMT);
-							this.resetInterrupt(TIMEWAIT);
-							wait(TIMEWAIT, 2*MSL);
-							changeState(State.TIME_WAIT);
+								this.resetInterrupt(REXMT);
+								this.resetInterrupt(TIMEWAIT);
+								wait(TIMEWAIT, 2*MSL);
+								changeState(State.TIME_WAIT);
+							}
 						}	
 					}
 				}
@@ -692,6 +694,10 @@ public class MySocket extends InterruptObject {
 	
 	private void fw1(TCPSegment recv){
 		if (!recv.getACK()){
+			if (recv.getFIN()){
+				FINbit(recv);
+				changeState(State.CLOSING);
+			}
 			return;
 		}
 		System.out.println("removeAckedSeg"+SND_UNA+" "+recv.AcknowledgmentNumber+" "+SND_NXT);
