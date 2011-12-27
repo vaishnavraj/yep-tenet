@@ -98,7 +98,7 @@ public class MySocket extends InterruptObject {
 	}
 	
 	public void forked(TCPSegment recv){
-		System.out.println("forked");
+		//System.out.println("forked");
 		RCV_NXT = recv.SequenceNumber+1;
 		IRS = recv.SequenceNumber;
 		ISS = random.nextInt();
@@ -339,7 +339,7 @@ public class MySocket extends InterruptObject {
 			sendSEG(seg, dest_ip);
 		case LISTEN:
 		case SYN_SENT:
-			if (Receive>0) m_tcp.ReturnMsg(ReturnType.RECEIVE, handle, ReturnStatus.CONN_CLOSING, -1, null);
+			if (Receive>0) m_tcp.ReturnMsg(ReturnType.RECEIVE, handle, ReturnStatus.CONN_RESET, -1, null);
 		case CLOSING:
 		case TIME_WAIT:
 		case LAST_ACK:
@@ -650,7 +650,7 @@ public class MySocket extends InterruptObject {
 	private boolean FINacked(TCPSegment recv){
 		for (int i=0;i<RexmtQueue.size();i++){
 			if (RexmtQueue.get(i).getFIN()) {
-				System.out.println("FIN_WAIT_1 "+RexmtQueue.get(i).SequenceNumber);
+				//System.out.println("FIN_WAIT_1 "+RexmtQueue.get(i).SequenceNumber);
 				return false;
 			}
 		}
@@ -680,7 +680,7 @@ public class MySocket extends InterruptObject {
 				Receive--;
 			}else 
 				if (recv.data!=null) ReceiveBuffer.add(recv.data);
-			System.out.println("datalength "+recv.getdataLength());
+			//System.out.println("datalength "+recv.getdataLength());
 			RCV_NXT = recv.SequenceNumber + recv.getdataLength();
 			seg = new TCPSegment(src_port, dest_port);
 			seg.SequenceNumber = SND_NXT;
@@ -700,7 +700,7 @@ public class MySocket extends InterruptObject {
 			}
 			return;
 		}
-		System.out.println("removeAckedSeg"+SND_UNA+" "+recv.AcknowledgmentNumber+" "+SND_NXT);
+		//System.out.println("removeAckedSeg"+SND_UNA+" "+recv.AcknowledgmentNumber+" "+SND_NXT);
 		if (SND_UNA<recv.AcknowledgmentNumber && recv.AcknowledgmentNumber <=SND_NXT){
 			WinUpdate(recv);
 			//SND_WND = Math.min(CWND, recv.WindowSize);
@@ -721,7 +721,7 @@ public class MySocket extends InterruptObject {
 				changeState(State.FIN_WAIT_2);
 			}
 		}else{
-			System.out.println("FIN_WAIT_1");
+			//System.out.println("FIN_WAIT_1");
 			if (recv.getFIN()){
 				FINbit(recv);
 				changeState(State.CLOSING);
@@ -735,7 +735,7 @@ public class MySocket extends InterruptObject {
 				FINbit(recv);
 				this.resetInterrupt(REXMT);
 				this.resetInterrupt(TIMEWAIT);
-				System.out.println("TIMEWAIT"+2*MSL);
+				//System.out.println("TIMEWAIT"+2*MSL);
 				wait(TIMEWAIT, 2*MSL);
 				changeState(State.TIME_WAIT);
 			}
@@ -877,13 +877,13 @@ public class MySocket extends InterruptObject {
 	
 	//Rexmt Timeout
 	private void rexmt(){
-		System.out.println(handle+" :rexmt"+Simulator.GetTime());
+		//System.out.println(handle+" :rexmt"+Simulator.GetTime());
 		this.resetInterrupt(REXMT);
 		switch (CurrState){
 		case ESTABLISHED:
 			
 			transmitCount++;
-			if (transmitCount >6) System.out.println("connecting seems lose");
+			//if (transmitCount >6) System.out.println("connecting seems lose");
 			m_tcp.sendSeg(RexmtQueue.peek(), src_ip, dest_ip);
 			if (myRTO <64) myRTO *= 2;
 			wait(REXMT, myRTO*RTO);
@@ -897,7 +897,7 @@ public class MySocket extends InterruptObject {
 		case CLOSING:
 		case LAST_ACK:
 			transmitCount++;
-			if (transmitCount >6) System.out.println("connecting seems lose");
+			//if (transmitCount >6) System.out.println("connecting seems lose");
 			m_tcp.sendSeg(RexmtQueue.peek(), src_ip, dest_ip);
 			wait(REXMT, RTO);
 			break;
@@ -924,7 +924,7 @@ public class MySocket extends InterruptObject {
 		while (RexmtQueue.size()>0 && RexmtQueue.peek().SequenceNumber < acknum ) RexmtQueue.remove();
 		
 		if (RexmtQueue.size()>0) {
-			System.out.println("removeAckedSeg "+RexmtQueue.peek().SequenceNumber);
+			//System.out.println("removeAckedSeg "+RexmtQueue.peek().SequenceNumber);
 			transmitTime = Simulator.GetTime();
 			transmitCount = 1;
 			myRTO = 1;

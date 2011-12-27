@@ -48,9 +48,8 @@ public interface IPProtocol extends IStateSetable, INetworkLayer, IRegistryableS
 	*       which link to send the packets , so dynamic routing can use these 
 	*	   function.
 	*/
-	public boolean canSend(int linkNumber);
-	public void sendPacket(byte[] data, Integer srcIPAddr, int linkNumber,
-			Integer clientProtocolId);
+	public boolean canSend();
+	public void sendPacket(byte[] data,	Integer clientProtocolId);
 
 	/**
 	*  	   For dynamic routing:
