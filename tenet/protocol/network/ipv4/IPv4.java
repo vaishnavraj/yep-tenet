@@ -16,6 +16,7 @@ import tenet.protocol.interrupt.InterruptObject;
 import tenet.protocol.interrupt.InterruptParam;
 import tenet.protocol.network.arp.ARP;
 import tenet.protocol.physics.Link;
+import tenet.protocol.rip.RIPProtocol;
 import tenet.util.ByteLib;
 import tenet.util.pattern.IParam;
 import tenet.util.pattern.cbc.Command;
@@ -54,6 +55,8 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 	
 	protected IClient<Integer> m_transport_layers;
 	
+	protected RIPProtocol m_rip;
+	
 	byte[] m_paddr = new byte[4];
 	
 	int mask; 
@@ -91,6 +94,9 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 	public Integer getIntegerAddress(){
 		return ByteLib.bytesToInt(m_paddr, 0);
 	}
+	public int getMask(){
+		return mask;
+	}
 	
 	public static Integer transToInteger(byte[] m_paddr){
 		return ByteLib.bytesToInt(m_paddr, 0);
@@ -105,6 +111,13 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 	public static String IPtoString(int ip) {
 		byte[] b=new byte[4];
 		ByteLib.bytesFromInt(b, 0, ip);
+		byte temp;
+		temp = b[0];
+		b[0] = b[3];
+		b[3] = temp;
+		temp = b[1];
+		b[1] = b[2];
+		b[2] = temp;
 		return byteToString(b,false);
 	}
 	
@@ -215,9 +228,11 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 
 	@Override
 	public void registryClient(IClient<Integer> client) {
-		m_transport_layers = client;
+		if (client instanceof RIPProtocol)
+			m_rip = (RIPProtocol)client;
+		else
+			m_transport_layers = client;
 		client.attachTo(this);
-
 	}
 
 	@Override
@@ -265,7 +280,7 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 	public void addRoute(Integer destIPAddr, Integer mask, Integer linkNumber,
 			Integer nextNodeIP, Integer metric) {
 		if (linkNumber == null) System.out.println("-.-R linkNumber wrong");
-		m_node.RouteTable.add(new RouteEntry(destIPAddr, mask, linkNumber, nextNodeIP, metric));
+		m_node.RouteTable.add(new RouteEntry(destIPAddr, mask, linkNumber, nextNodeIP, metric, 0));
 		Collections.sort(m_node.RouteTable);
 	}
 
@@ -273,14 +288,14 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 	public void addDefaultRoute(Integer linkNumber, Integer nextRouterIP) {
 		P("addDefaultRoute "+IPtoString(nextRouterIP));
 		if (linkNumber == null) System.out.println("-.-D linkNumber wrong");
-		m_node.DefaultRoute = new RouteEntry(0, 0, linkNumber, nextRouterIP, 0);
+		m_node.DefaultRoute = new RouteEntry(0, 0, linkNumber, nextRouterIP, 0, 0);
 	}
 
 	@Override
 	public Integer getLinkNumber(Integer ipaddr) {
 		if (m_node!= null){
 			int linknum = m_node.getIPv4Linknum(ipaddr);
-			//ystem.out.println(ipaddr+" "+linknum);
+			//System.out.println("getLinkNumber "+ipaddr+" "+linknum);
 			if (linknum<0) return null;
 			return linknum;
 		}
@@ -330,6 +345,7 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 			IDataLinkLayer.ReceiveStatus rstatus = ((IDataLinkLayer.ReceiveParam) param).status;
 			switch (rstatus) {
 			case receiveOK:
+				//System.out.println("receiveOK pkt");
 				IPv4Packet packet = new IPv4Packet(((IDataLinkLayer.ReceiveParam) param).frame.dataParam);
 				handleReceiveOK(packet, false);
 				break;
@@ -355,30 +371,43 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 	public void handleReceiveOK(IPv4Packet Packet, boolean newPkt){
 		Integer destIPAddr = Packet.destIPAddr;
 		P("handleReceiveOK "+(destIPAddr.intValue() == this.getIntegerAddress().intValue())+" portocal id:"+ByteLib.byteToUnsigned(Packet.protocol,0));
-		if ((destIPAddr.intValue() == this.getIntegerAddress().intValue()||(destIPAddr.intValue() == broadcastIP.intValue()) )&& Packet.getProtocal()== m_transport_layers.getUniqueID() ){
-			FragmentBuffer bufferID = new FragmentBuffer(Packet.srcIPAddr, Packet.destIPAddr, Packet.getProtocal(), Packet.getIndentifier());
-			//Reassembly
-			//TODO check timeout and flush the buffer
-			//System.out.println(IPtoString(this.getIntegerAddress())+" Reassembly");
-			if (!receiveBuffer.contains(bufferID)) {
-				receiveBuffer.add(bufferID);
-				//System.out.println("new bufferID");
+		
+		if (destIPAddr.intValue() == this.getIntegerAddress().intValue()||(destIPAddr.intValue() == broadcastIP.intValue())){
+			if (m_transport_layers!=null && Packet.getProtocal()== m_transport_layers.getUniqueID() ){
+				FragmentBuffer bufferID = new FragmentBuffer(Packet.srcIPAddr, Packet.destIPAddr, Packet.getProtocal(), Packet.getIndentifier());
+				//Reassembly
+				//TODO check timeout and flush the buffer
+				//System.out.println(IPtoString(this.getIntegerAddress())+" Reassembly");
+				if (!receiveBuffer.contains(bufferID)) {
+					receiveBuffer.add(bufferID);
+					//System.out.println("new bufferID");
+				}
+				int index = receiveBuffer.indexOf(bufferID);
+				if (index < 0) System.out.println("seems error in Reassembly");
+				byte[] data = receiveBuffer.get(index).arrive(Packet);
+				if (data != null){
+					receiveBuffer.remove(index);
+					IPReceiveParam param = new IPReceiveParam(
+							IPReceiveParam.ReceiveType.OK,
+							Packet.destIPAddr,
+							Packet.srcIPAddr,
+							this.getUniqueID(),
+							data);
+					((InterruptObject) m_transport_layers).delayInterrupt(recPacketSignal, param, 0);
+				}
 			}
-			int index = receiveBuffer.indexOf(bufferID);
-			if (index < 0) System.out.println("seems error in Reassembly");
-			byte[] data = receiveBuffer.get(index).arrive(Packet);
-			if (data != null){
-				receiveBuffer.remove(index);
+			if (m_rip!=null && Packet.getProtocal()== RIPProtocol.protocolID ){
 				IPReceiveParam param = new IPReceiveParam(
 						IPReceiveParam.ReceiveType.OK,
 						Packet.destIPAddr,
 						Packet.srcIPAddr,
 						this.getUniqueID(),
-						data);
-				((InterruptObject) m_transport_layers).delayInterrupt(recPacketSignal, param, 0);
+						Packet.data);
+				m_rip.delayInterrupt(recPacketSignal, param, 0);
 			}
 			return;
 		}
+		
 		IPv4 sendIPv4 = getRoute(destIPAddr);
 		//P(""+getRoutenextIPAddr);
 		if (sendIPv4 == null){
@@ -415,7 +444,7 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 		}
 		else
 			dest_mac=MediumAddress.MAC_ALLONE;
-		
+		//System.out.println("sendPacketLocal RIP pkt");
 		List<IPv4Packet> packetsList = Packet.fragment(m_dllayer.getMTU());
 		for (int i=0;i<packetsList.size();i++){
 			IPv4Packet packet = packetsList.get(i);
@@ -506,9 +535,7 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 	
 	@Override
 	public boolean canSend(Integer destIPAddr) {
-		//TODO signal canSendSignal
-		//Do What?
-		if (!m_state) return false;
+		if (!m_state || !m_linkup) return false;
 		return (getRoute(destIPAddr)!=null);
 	}
 
@@ -522,17 +549,14 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 	}
 
 	@Override
-	public boolean canSend(int linkNumber) {
-		// TODO Auto-generated method stub
-		// For dynamic routing
-		return false;
+	public boolean canSend() {
+		return (m_state&&m_linkup);
 	}
 
 	@Override
-	public void sendPacket(byte[] data, Integer srcIPAddr, int linkNumber,
-			Integer clientProtocolId) {
-		// TODO Auto-generated method stub
-		// For dynamic routing
+	public void sendPacket(byte[] data,	Integer clientProtocolId) {
+		IPv4Packet packet = new IPv4Packet(nowID++ ,maxTimeToLive, clientProtocolId, this.getIntegerAddress(), broadcastIP, data);
+		this.sendPacketLocal(packet, broadcastIP);
 
 	}
 	

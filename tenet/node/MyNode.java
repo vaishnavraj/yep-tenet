@@ -7,13 +7,15 @@ import java.util.List;
 import java.util.Map;
 
 import tenet.node.INode;
+import tenet.protocol.interrupt.InterruptObject;
+import tenet.protocol.interrupt.InterruptParam;
 import tenet.protocol.network.ipv4.IPv4;
 import tenet.protocol.network.ipv4.RouteEntry;
 import tenet.protocol.statecontrol.IStateSetable;
 import tenet.util.ByteLib;
 import tenet.util.pattern.serviceclient.IClient;
 
-public class MyNode implements INode {
+public class MyNode extends InterruptObject implements INode {
 	
 	HashMap<IClient<?>,byte[]> addrmap=new HashMap<IClient<?>,byte[]>();
 	HashSet<IClient<?>> clientset=new HashSet<IClient<?>>();
@@ -49,7 +51,6 @@ public class MyNode implements INode {
 
 	@Override
 	public void enable() {
-		// TODO Auto-generated method stub
 		if(isEnabled) return;
 		for(IClient<?> client:clientset)
 			if(client instanceof IStateSetable)
@@ -87,8 +88,8 @@ public class MyNode implements INode {
 	}
 	
 	//the following is for being a IPv4 router
-	private List<IPv4> IPv4Links = new LinkedList<IPv4>();
-	private Map<Integer,IPv4> IPv4Address = new HashMap<Integer,IPv4>();
+	protected List<IPv4> IPv4Links = new LinkedList<IPv4>();
+	protected Map<Integer,IPv4> IPv4Address = new HashMap<Integer,IPv4>();
 	
 	public void registryIpv4(IPv4 ip){
 		IPv4Links.add(ip);
@@ -122,6 +123,11 @@ public class MyNode implements INode {
 	
 	public List<RouteEntry> RouteTable = new LinkedList<RouteEntry>();
 	public RouteEntry DefaultRoute;
+	@Override
+	protected void interruptHandle(int signal, InterruptParam param) {
+		// TODO Auto-generated method stub
+		
+	}
 	
 
 }
