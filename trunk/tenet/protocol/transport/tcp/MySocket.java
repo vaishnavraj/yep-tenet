@@ -60,6 +60,7 @@ public class MySocket extends InterruptObject {
 	public LinkedList<TCPSegment> RexmtQueue = new  LinkedList<TCPSegment>();
 	public int Receive = 0;
 	public int Close = 0;
+	public int connect = 0;
 	
 	Random random = new Random();
 	TCPSegment seg;
@@ -115,7 +116,7 @@ public class MySocket extends InterruptObject {
 	
 	
 	private void changeState(State newState){
-		System.out.println(handle+" :"+CurrState+"->"+newState);
+		//System.out.println(handle+" :"+CurrState+"->"+newState);
 		if (newState == State.CLOSED){
 			//if (m_tcp.portHandle.get(src_port) == this) m_tcp.portHandle.remove(src_port);
 			//m_tcp.handleSocket.remove(this.handle);
@@ -127,6 +128,7 @@ public class MySocket extends InterruptObject {
 			this.resetInterrupt(REXMT);
 			Receive = 0;
 			Close = 0;
+			connect = 0;
 			m_tcp.ReturnMsg(ReturnType.CLOSE, handle, ReturnStatus.OK, 0, null);
 		}
 		if (newState == State.ESTABLISHED){
@@ -138,6 +140,10 @@ public class MySocket extends InterruptObject {
 				seg.setACK();
 				sendSEG(seg, dest_ip);
 				SND_NXT += seg.getdataLength();
+			}
+			if (connect>0){
+				connect = 0;
+				m_tcp.ReturnMsg(ReturnType.CONNECT, handle, ReturnStatus.OK, 0, null);
 			}
 			if (Close>0) this.close();
 		}
@@ -179,6 +185,7 @@ public class MySocket extends InterruptObject {
 			SND_UNA = ISS;
 			SND_NXT = ISS+1;
 			changeState(State.SYN_SENT);
+			connect++;
 			break;
 		case LISTEN:
 			//TODO
@@ -351,12 +358,12 @@ public class MySocket extends InterruptObject {
 	
 	//Segment Arrives
 	public void segmentArrives(TCPSegment recv, Integer srcip){
-		///*
+		/*
 		System.out.println(handle+" :recive from IP:"+srcip+" port:"+recv.SourcePort+" SEQ:"
 				+recv.SequenceNumber+" ACKN:"+recv.AcknowledgmentNumber
 				+" ACK:"+recv.getACK()+" RST:"+recv.getRST()+" SYN:"+recv.getSYN()+" FIN:"+recv.getFIN()
-				+" DATA:"+recv.data);
-		//*/
+				+" DATA:"+recv.data+" "+Simulator.GetTime());
+		*/
 		switch (CurrState){
 		case CLOSED:
 			if (recv.getRST()) return;
