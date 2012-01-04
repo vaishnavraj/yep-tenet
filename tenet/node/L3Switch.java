@@ -84,7 +84,7 @@ public class L3Switch extends MyNode {
 			for (int i=0;i<RouteTable.size();){
 				if (RouteTable.get(i).type == 1 && Simulator.GetTime()-RouteTable.get(i).time >100){
 					RouteEntry re = RouteTable.get(i);
-					System.out.println("remove "+re.type+" "+re.time+" "+IPv4.IPtoString(re.address)+" "+IPv4.IPtoString(re.nextAddress));
+					//System.out.println("remove "+re.type+" "+re.time+" "+IPv4.IPtoString(re.address)+" "+IPv4.IPtoString(re.nextAddress));
 					RouteTable.remove(i);
 					
 				}else i++;

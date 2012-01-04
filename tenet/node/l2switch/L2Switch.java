@@ -2,6 +2,7 @@ package tenet.node.l2switch;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.PriorityQueue;
 
 import tenet.core.Simulator;
@@ -161,6 +162,30 @@ public class L2Switch extends InterruptObject implements INode {
 	@Override
 	public byte[] getAddress(IClient<?> protocol){
 		return null;
+	}
+
+	private LinkedList<byte[]> recent = new LinkedList<byte[]>();
+	public HashMap<MediumAddress, SimpleEthernetDatalink> getlinks(byte[] data) {
+		boolean flag = false;
+		for (int i=0;i<recent.size();i++){
+			boolean miao = true;
+			byte[] odata = recent.get(i);
+			if (data.length!=odata.length) continue;
+			for (int p=0;p<odata.length;p++){
+				if (data[p]!=odata[p]){
+					miao = false;
+					break;
+				}
+			}
+			if (miao){
+				flag = true;
+				break;
+			}
+		}
+		recent.add(data);
+		while (recent.size()>10) recent.remove();
+		if (flag) return new HashMap<MediumAddress, SimpleEthernetDatalink>();
+		return m_datalinks;
 	}
 	
 }

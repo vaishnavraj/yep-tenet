@@ -411,11 +411,11 @@ public class IPv4 extends InterruptObject implements IPProtocol {
 		IPv4 sendIPv4 = getRoute(destIPAddr);
 		//P(""+getRoutenextIPAddr);
 		if (sendIPv4 == null){
-			System.out.println("can't find route rule (sendIPv4)");
+			//System.out.println("can't find route rule (sendIPv4)");
 			return;
 		}
 		if (getRoutenextIPAddr == null) {
-			System.out.println("can't find route rule (getRoutenextIPAddr)");
+			//System.out.println("can't find route rule (getRoutenextIPAddr)");
 			return;
 		}
 		if (sendIPv4 != this) {

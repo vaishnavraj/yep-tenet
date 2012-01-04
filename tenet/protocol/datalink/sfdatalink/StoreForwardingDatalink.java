@@ -98,7 +98,7 @@ public class StoreForwardingDatalink extends SimpleEthernetDatalink {
 				((StoreForwardingDatalink)des).m_send_queue.add(param);
 				((StoreForwardingDatalink)des).sendnext();
 			}else
-				for (SimpleEthernetDatalink DataLink: Switch.m_datalinks.values())
+				for (SimpleEthernetDatalink DataLink: Switch.getlinks(param.toBytes()).values())
 					if (DataLink != this){
 						((StoreForwardingDatalink)DataLink).m_send_queue.add(param);
 						((StoreForwardingDatalink)DataLink).sendnext();
